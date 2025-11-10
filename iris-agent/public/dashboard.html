@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IRIS Control Center</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0a0a0a; color: #fff; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .card { background: #1a1a1a; border-radius: 12px; padding: 20px; border: 1px solid #333; }
+        .metrics { margin-bottom: 20px; }
+        .metric-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333; }
+        .agent-controls { display: flex; gap: 10px; margin-top: 15px; }
+        button { background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .error { color: #ff4444; }
+        .success { color: #44ff44; }
+        .warning { color: #ffaa44; }
+        .api-section { margin-top: 30px; padding: 20px; background: #2a2a2a; border-radius: 8px; }
+        .api-url { font-family: monospace; background: #333; padding: 10px; border-radius: 4px; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 IRIS Control Center</h1>
+            <p>Centro de control para monitoreo y gestión del sistema IRIS</p>
+        </div>
+        
+        <div class="dashboard">
+            <div class="card">
+                <h3>📊 Métricas en Tiempo Real</h3>
+                <div class="metrics" id="realtime-metrics">
+                    <div class="metric-row">
+                        <span>Agentes Activos:</span>
+                        <span id="active-agents">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span>Total Tareas:</span>
+                        <span id="total-tasks">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span>Tokens Utilizados:</span>
+                        <span id="total-tokens">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span>Tiempo Respuesta:</span>
+                        <span id="avg-response">-</span>
+                    </div>
+                </div>
+                <div class="api-section">
+                    <h4>🔗 API Endpoints</h4>
+                    <div class="api-url">http://localhost:8000/metrics/summary</div>
+                    <div class="api-url">http://localhost:8000/metrics/stream</div>
+                    <div class="api-url">http://localhost:8000/agents</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>🤖 Control de Agentes</h3>
+                <div id="agents-control">
+                    <!-- Los agentes se cargarán dinámicamente -->
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>📈 Tendencias y Analytics</h3>
+                <div class="metrics">
+                    <div class="metric-row">
+                        <span>Última Actualización:</span>
+                        <span id="last-update">-</span>
+                    </div>
+                    <div class="metric-row">
+                        <span>Estado del Sistema:</span>
+                        <span id="system-status" class="success">Operacional</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let eventSource = null;
+        
+        async function loadMetrics() {
+            try {
+                const response = await fetch('http://localhost:8000/metrics/summary');
+                const data = await response.json();
+                updateMetricsDisplay(data);
+                loadAgentsControl(data.agents);
+            } catch (error) {
+                console.error('Error cargando métricas:', error);
+            }
+        }
+        
+        function updateMetricsDisplay(data) {
+            document.getElementById('active-agents').textContent = data.summary.active_agents;
+            document.getElementById('total-tasks').textContent = data.summary.total_tasks.toLocaleString();
+            document.getElementById('total-tokens').textContent = data.summary.total_tokens.toLocaleString();
+            document.getElementById('avg-response').textContent = data.summary.avg_response_time.toFixed(2) + 's';
+            document.getElementById('last-update').textContent = new Date(data.timestamp).toLocaleTimeString();
+        }
+        
+        function loadAgentsControl(agents) {
+            const container = document.getElementById('agents-control');
+            container.innerHTML = '';
+            
+            agents.forEach(agent => {
+                const agentDiv = document.createElement('div');
+                agentDiv.innerHTML = `
+                    <div class="metric-row">
+                        <span>${agent.agent}</span>
+                        <span class="${agent.status === 'active' ? 'success' : 'warning'}">${agent.status}</span>
+                    </div>
+                    <div class="agent-controls">
+                        <button onclick="deployAgent('${agent.id}')">🚀 Deploy</button>
+                        <button onclick="stopAgent('${agent.id}')">🛑 Stop</button>
+                        <button onclick="restartAgent('${agent.id}')">🔄 Restart</button>
+                    </div>
+                `;
+                container.appendChild(agentDiv);
+            });
+        }
+        
+        async function deployAgent(agentId) {
+            try {
+                const response = await fetch(`http://localhost:8000/agents/${agentId}/deploy`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                alert(`Agente ${agentId} deployado exitosamente`);
+                loadMetrics(); // Recargar métricas
+            } catch (error) {
+                console.error('Error deployando agente:', error);
+                alert('Error deployando agente');
+            }
+        }
+        
+        async function stopAgent(agentId) {
+            try {
+                const response = await fetch(`http://localhost:8000/agents/${agentId}/stop`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                alert(`Agente ${agentId} detenido`);
+                loadMetrics();
+            } catch (error) {
+                console.error('Error deteniendo agente:', error);
+                alert('Error deteniendo agente');
+            }
+        }
+        
+        async function restartAgent(agentId) {
+            try {
+                await stopAgent(agentId);
+                setTimeout(() => deployAgent(agentId), 1000);
+            } catch (error) {
+                console.error('Error reiniciando agente:', error);
+                alert('Error reiniciando agente');
+            }
+        }
+        
+        function startStreaming() {
+            eventSource = new EventSource('http://localhost:8000/metrics/stream');
+            
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                updateMetricsDisplay({ summary: data, timestamp: data.timestamp });
+            };
+            
+            eventSource.onerror = (error) => {
+                console.error('Error en streaming:', error);
+                setTimeout(startStreaming, 5000); // Reconectar después de 5 segundos
+            };
+        }
+        
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMetrics(); // Cargar métricas iniciales
+            startStreaming(); // Iniciar streaming en tiempo real
+            setInterval(loadMetrics, 30000); // Actualizar cada 30 segundos
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+# Dockerfile para IRIS Code Backend
+# Optimizado para Docker + Multi-App
+
+FROM python:3.11-slim
+
+# Configurar variables de entorno
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Crear usuario no-root para seguridad
+RUN groupadd -r iris && useradd -r -g iris iris
+
+# Instalar dependencias del sistema
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        curl \
+        build-essential \
+        postgresql-client \
+        redis-tools \
+        git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Crear directorios de trabajo
+WORKDIR /app/backend
+WORKDIR /app/projects
+WORKDIR /app/templates
+WORKDIR /app/logs
+WORKDIR /app/config
+
+# Copiar requirements primero (para cache de Docker)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar código fuente
+COPY . .
+
+# Instalar dependencias de desarrollo si existe requirements-dev.txt
+RUN if [ -f requirements-dev.txt ]; then pip install --no-cache-dir -r requirements-dev.txt; fi
+
+# Cambiar propiedad de archivos al usuario iris
+RUN chown -R iris:iris /app
+
+# Cambiar al usuario no-root
+USER iris
+
+# Exponer puerto (configurable)
+EXPOSE ${IRIS_PORT:-8000}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${IRIS_PORT:-8000}/health || exit 1
+
+# Comando por defecto
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "${IRIS_PORT:-8000}", "--workers", "1"]

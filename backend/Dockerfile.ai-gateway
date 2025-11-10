@@ -1,0 +1,25 @@
+# Dockerfile para AI Gateway - Router inteligente de IA
+FROM python:3.11-slim
+
+# Configurar directorio de trabajo
+WORKDIR /app
+
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar requirements
+COPY requirements.txt .
+
+# Instalar dependencias Python
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar código fuente
+COPY . .
+
+# Exponer puerto
+EXPOSE 8002
+
+# Comando de inicio
+CMD ["uvicorn", "ai_gateway:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]
