@@ -2670,7 +2670,7 @@ class MCPClient {
           quality: request.quality || 'hd',
           voiceover: request.voiceover || false,
           music: request.music || false,
-          api_key: 'AIzaSyBlqzSr6sv65rsQmNjNMGDZ5sz72DCpP38'
+          api_key: process.env.GOOGLE_API_KEY || ''
         }),
         signal: AbortSignal.timeout(this.config.timeout * 5) // Longer timeout for video generation
       });

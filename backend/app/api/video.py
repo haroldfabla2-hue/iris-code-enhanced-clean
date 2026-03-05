@@ -76,8 +76,8 @@ async def generate_video_veo3(request: VideoRequest):
     """Generate video using VEO3 API with weekly limit"""
     try:
         # Validate API key
-        expected_api_key = "AIzaSyBlqzSr6sv65rsQmNjNMGDZ5sz72DCpP38"
-        if request.api_key != expected_api_key:
+        expected_api_key = os.getenv("GOOGLE_API_KEY")
+        if not expected_api_key or request.api_key != expected_api_key:
             raise HTTPException(status_code=401, detail="Invalid API key")
         
         # Check weekly limit
@@ -150,8 +150,10 @@ async def get_video_status(video_id: str):
     )
 
 @router.get("/veo3/limit", response_model=VideoLimitResponse)
-async def get_video_generation_limit(api_key: str = "AIzaSyBlqzSr6sv65rsQmNjNMGDZ5sz72DCpP38"):
+async def get_video_generation_limit(api_key: str = None):
     """Get current video generation limit status"""
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key is required")
     can_generate, remaining = check_weekly_limit(api_key)
     used = WEEKLY_LIMIT - remaining
     
@@ -170,8 +172,10 @@ async def get_video_generation_limit(api_key: str = "AIzaSyBlqzSr6sv65rsQmNjNMGD
     )
 
 @router.get("/veo3/history", response_model=VideoHistoryResponse)
-async def get_video_history(limit: int = 10, api_key: str = "AIzaSyBlqzSr6sv65rsQmNjNMGDZ5sz72DCpP38"):
+async def get_video_history(limit: int = 10, api_key: str = None):
     """Get video generation history for user"""
+    if not api_key:
+        raise HTTPException(status_code=400, detail="API key is required")
     user_videos = [
         v for v in video_generations.values() 
         if v.get("api_key") == api_key
